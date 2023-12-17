@@ -12,7 +12,21 @@
     // TODO: implementing my on class to upgrade http connection to websocket
     const ws = new WebSocket('ws://localhost:1337');
 
-    ws.onopen = () => console.log("Websocket connection established");
+    ws.onopen = () => {
+      console.log("Websocket connection established");
+      const id = 2;
+      console.log("sending id...", id);
+      const data = JSON.stringify({
+        id,
+        name: `[${id}] Luisao`,
+        address: {
+          street: "my street",
+          number: 20 * id,
+        },
+        role: "software engineer",
+      })
+      ws.send(data);
+    }
     ws.onmessage = event => {
       const message = event.data;
       messages.appendChild(document.createElement('li')).append(message);
