@@ -7,10 +7,11 @@ const SEVEN_BITS_INTEGER_MARKER = 125;
 const SIXTEEN_BITS_INTEGER_MARKER = 126;
 const SIXTY_FOUR_BITS_INTEGER_MARKER = 127;
 
+const MASK_KEY_BYTES_LENGTH = 4;
+const OPCODE_TEXT = 0x01; // 1 bit in binary
+
 // parseInt("10000000", 2) -> 128
 const FIRST_BIT = 128;
-
-const MASK_KEY_BYTES_LENGTH = 4;
 
 const server = createServer((req, res) => {
   res.writeHead(200);
@@ -67,11 +68,8 @@ function onSocketReadable(socket) {
   const decodedMessage = unmaskData(encodedMessage, mask);
 
   const data = JSON.parse(decodedMessage.toString());
-  const msg = JSON.stringify({
-    message: data,
-    at: new Date().toISOString(),
-  })
-  console.log(msg)
+  console.log("message received: ", data);
+  sendMessage(decodedMessage.toString(), socket)
 }
 
 const fillWithEightZeros = (b) => b.padStart(8, "0");
@@ -91,6 +89,42 @@ function unmaskData(encodedBuffer, mask) {
     console.log(logger);
   }
   return finalBuffer;
+}
+
+function sendMessage(msg, socket) {
+  const dataFrameBuffer = prepareMessage(msg);
+  socket.write(dataFrameBuffer);
+}
+
+function prepareMessage(message) {
+  const msg = Buffer.from(message);
+  const messageSize = msg.length;
+
+  let dataFrameBuffer;
+
+  // 0x80 === 128 in binary
+  // 10000000
+  const firstByte = 0x80 | OPCODE_TEXT; // single frame + text
+
+  if (messageSize <= SEVEN_BITS_INTEGER_MARKER) {
+    const bytes = [firstByte];
+    dataFrameBuffer = Buffer.from(bytes.concat(messageSize));
+  } else {
+    throw new Error("message too long :(");
+  }
+  const totalLength = dataFrameBuffer.byteLength + messageSize;
+  const dataFrameResponse = concat([dataFrameBuffer, msg], totalLength);
+  return dataFrameResponse;
+}
+
+function concat(bufferList, totalLength) {
+  const target = Buffer.allocUnsafe(totalLength);
+  let offset = 0
+  for (const buffer of bufferList) {
+    target.set(buffer, offset);
+    offset += buffer.length;
+  }
+  return target;
 }
 
 server.on("upgrade", onSocketUpgrade);

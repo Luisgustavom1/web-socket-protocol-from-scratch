@@ -14,7 +14,7 @@
 
     ws.onopen = () => {
       console.log("Websocket connection established");
-      const id = 2;
+      const id = Math.round(Math.random() * 100);
       console.log("sending id...", id);
       const data = JSON.stringify({
         id,
