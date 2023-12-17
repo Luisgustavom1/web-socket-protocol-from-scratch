@@ -7,6 +7,7 @@ const SEVEN_BITS_INTEGER_MARKER = 125;
 const SIXTEEN_BITS_INTEGER_MARKER = 126;
 const SIXTY_FOUR_BITS_INTEGER_MARKER = 127;
 
+const MAXIMUM_SIXTEEN_BITS_INTEGER = 2 ** 16; // 65536
 const MASK_KEY_BYTES_LENGTH = 4;
 const OPCODE_TEXT = 0x01; // 1 bit in binary
 
@@ -27,6 +28,9 @@ function onSocketUpgrade(req, socket, head) {
   
   socket.write(headers);
   socket.on("readable", () => onSocketReadable(socket));
+  socket.on("close", () => {
+    console.log("server closed");
+  });
 }
 
 function prepareHandShakeHeaders(key) {
@@ -59,6 +63,9 @@ function onSocketReadable(socket) {
 
   if (lengthIndicatorInBits <= SEVEN_BITS_INTEGER_MARKER) {
     messageLength = lengthIndicatorInBits;
+  } else if (lengthIndicatorInBits === SIXTEEN_BITS_INTEGER_MARKER) {
+    // unsigned 16-bit integer [0 - 65k] - 2 ** 16
+    messageLength = socket.read(2).readUint16BE(0);
   } else {
     throw new Error("your message is too long! We don't handle 64-bit message");
   }
@@ -68,8 +75,12 @@ function onSocketReadable(socket) {
   const decodedMessage = unmaskData(encodedMessage, mask);
 
   const data = JSON.parse(decodedMessage.toString());
+  const msg = JSON.stringify({
+    message: data,
+    at: new Date().toISOString(),
+  })
   console.log("message received: ", data);
-  sendMessage(decodedMessage.toString(), socket)
+  sendMessage(msg, socket);
 }
 
 const fillWithEightZeros = (b) => b.padStart(8, "0");
@@ -109,6 +120,21 @@ function prepareMessage(message) {
   if (messageSize <= SEVEN_BITS_INTEGER_MARKER) {
     const bytes = [firstByte];
     dataFrameBuffer = Buffer.from(bytes.concat(messageSize));
+  } else if (messageSize <= MAXIMUM_SIXTEEN_BITS_INTEGER) {
+    const offset = 4;
+    const target = Buffer.allocUnsafe(offset); 
+    target[0] = firstByte;
+    target[1] = SIXTEEN_BITS_INTEGER_MARKER | 0x0 // just to know the mask;
+
+    target.writeUint16BE(messageSize, 2); // content length is 2 bytes
+    dataFrameBuffer = target;
+    
+    // alloc 4 bytes
+    // [0] -> 129 - 10000001 - 0x80 = 1 bit for FIN + 1 bit for opcode
+    // [1] -> 126 - 01111110 - 0x7E = 0 bit for mask + 7 bits for payload length (126)
+    // [2] -> 1   - 8 bits for payload length (126)
+    // [3] -> 108 - 8 bits for payload length (126)
+    // [4 - ...] -> payload data
   } else {
     throw new Error("message too long :(");
   }

@@ -6,7 +6,9 @@
   <title>Web Socket Client</title>
 </head>
 <body>
-  <output id="messages"></output>
+  <output>
+    <ul id="messages"></ul>
+  </output>
   <script>
     const messages = document.getElementById('messages');
     // TODO: implementing my on class to upgrade http connection to websocket
@@ -16,20 +18,59 @@
       console.log("Websocket connection established");
       const id = Math.round(Math.random() * 100);
       console.log("sending id...", id);
-      const data = JSON.stringify({
-        id,
-        name: `[${id}] Luisao`,
-        address: {
-          street: "my street",
-          number: 20 * id,
-        },
-        role: "software engineer",
-      })
-      ws.send(data);
+      
+      const intervalId = setInterval(() => {
+        const data = JSON.stringify([
+          {
+            id,
+            name: `[${id}] Luisao`,
+            address: {
+              street: "my street",
+              number: 20 * id,
+            },
+            role: "software engineer",
+          },
+          {
+            id,
+            name: `[${id}] Luisao 2`,
+            address: {
+              street: "my street",
+              number: 20 * id,
+            },
+            role: "software engineer",
+          },
+          {
+            id,
+            name: `[${id}] Luisao 3`,
+            address: {
+              street: "my street",
+              number: 20 * id,
+            },
+            role: "software engineer",
+          },
+          {
+            id,
+            name: `[${id}] Luisao 4`,
+            address: {
+              street: "my street",
+              number: 20 * id,
+            },
+            role: "software engineer",
+          },
+        ])
+        ws.send(data);
+      }, 1000);
+
+      setTimeout(() => {
+        clearInterval(intervalId);
+        ws.close();
+      }, 5000);
     }
     ws.onmessage = event => {
-      const message = event.data;
-      messages.appendChild(document.createElement('li')).append(message);
+      const data = JSON.parse(event.data).message;
+      data.forEach(element => {
+        messages.appendChild(document.createElement('li')).append(JSON.stringify(element, null, 2));
+      });
       console.log("I got a message ", event)
     };
     ws.onerror = error => console.log("A error happened ", error);
