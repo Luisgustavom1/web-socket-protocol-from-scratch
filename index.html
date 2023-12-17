@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web Socket Client</title>
+</head>
+<body>
+  <output id="messages"></output>
+  <script>
+    const messages = document.getElementById('messages');
+    // TODO: implementing my on class to upgrade http connection to websocket
+    const ws = new WebSocket('ws://localhost:1337');
+
+    ws.onopen = () => console.log("Websocket connection established");
+    ws.onmessage = event => {
+      const message = event.data;
+      messages.appendChild(document.createElement('li')).append(message);
+      console.log("I got a message ", event)
+    };
+    ws.onerror = error => console.log("A error happened ", error);
+    ws.onclose = event => console.log("Disconnected from server", event); 
+  </script>
+</body>
+</html>
